@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=MaSzyna
+Exec=maszyna
+Icon=maszyna
+StartupWMClass=maszyna
+Comment=Rail Vehicle Simulator
+Type=Application
+Terminal=false
+Keywords=Simulator;Game;Train;

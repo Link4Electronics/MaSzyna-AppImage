@@ -7,9 +7,12 @@ ARCH=$(uname -m)
 echo "Installing package dependencies..."
 echo "---------------------------------------------------------------"
 pacman -Syu --noconfirm \
-    cmake         \
-    libserialport \
-    openvr
+    cmake          \
+    glfw           \
+    libserialport  \
+    luajit         \
+    openvr         \
+    vulkan-headers
 
 echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"

@@ -11,8 +11,10 @@ pacman -Syu --noconfirm \
     glfw           \
     libserialport  \
     luajit         \
+    openal         \
     openvr         \
-    vulkan-headers
+    vulkan-headers \
+    wine
 
 echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"

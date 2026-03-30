@@ -6,7 +6,10 @@ ARCH=$(uname -m)
 
 echo "Installing package dependencies..."
 echo "---------------------------------------------------------------"
-# pacman -Syu --noconfirm PACKAGESHERE
+pacman -Syu --noconfirm \
+    cmake         \
+    libserialport \
+    openvr
 
 echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"

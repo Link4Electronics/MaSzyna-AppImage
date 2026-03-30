@@ -13,7 +13,8 @@ echo "---------------------------------------------------------------"
 get-debloated-pkgs --add-common --prefer-nano
 
 # Comment this out if you need an AUR package
-#make-aur-package PACKAGENAME
+PRE_BUILD_CMDS='sed -i "/^check() {/,/^}/d" ./PKGBUILD' make-aur-package openssl-1.1
+PRE_BUILD_CMDS='sed -i "/^check() {/,/^}$/d" ./PKGBUILD' make-aur-package python2
 
 # If the application needs to be manually built that has to be done down here
 

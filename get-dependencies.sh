@@ -21,14 +21,8 @@ get-debloated-pkgs --add-common --prefer-nano
 # Comment this out if you need an AUR package
 PRE_BUILD_CMDS='sed -i "/^check() {/,/^}/d" ./PKGBUILD' make-aur-package openssl-1.1
 PRE_BUILD_CMDS='sed -i "/^check() {/,/^}$/d" ./PKGBUILD' make-aur-package python2
-make-aur-package maszyna-git
+PRE_BUILD_CMDS='sed -i "s|INSTALL_DIR='\''/opt/maszyna'\''|INSTALL_DIR='\''\$APPDIR/bin'\''|g" ./maszyna.sh' make-aur-package maszyna-git
 
 # If the application needs to be manually built that has to be done down here
-
-# if you also have to make nightly releases check for DEVEL_RELEASE = 1
-#
-# if [ "${DEVEL_RELEASE-}" = 1 ]; then
-# 	nightly build steps
-# else
-# 	regular build steps
-# fi
+mkdir -p ./AppDir/bin
+mv -v /opt/maszyna/* ./AppDir/bin

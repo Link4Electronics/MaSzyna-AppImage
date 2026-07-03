@@ -12,14 +12,10 @@ pacman -Syu --noconfirm \
     glfw           \
     glm            \
     libserialport  \
-    libsndfile     \
     luajit         \
     openal         \
     openvr         \
-    p7zip          \
-    python         \
-    vulkan-headers \
-    wine
+    vulkan-headers
 
 echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"

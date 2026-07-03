@@ -29,7 +29,13 @@ get-debloated-pkgs --add-common --prefer-nano
 #make-aur-package
 
 # If the application needs to be manually built that has to be done down here
-git clone --recursive https://github.com/MaSzyna-EU07/maszyna
+echo "Making nightly build of MaSzyna..."
+echo "---------------------------------------------------------------"
+REPO="https://github.com/MaSzyna-EU07/maszyna"
+VERSION="$(git ls-remote "$REPO" HEAD | cut -c 1-9 | head -1)"
+git clone --recursive "$REPO" ./maszyna
+echo "$VERSION" > ~/version
+
 mkdir -p ./AppDir/bin
 cd ./maszyna
 mkdir build && cd build

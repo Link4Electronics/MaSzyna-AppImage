@@ -13,6 +13,7 @@ pacman -Syu --noconfirm \
     luajit         \
     openal         \
     openvr         \
+    python         \
     vulkan-headers \
     wine
 
@@ -21,8 +22,6 @@ echo "---------------------------------------------------------------"
 get-debloated-pkgs --add-common --prefer-nano
 
 # Comment this out if you need an AUR package
-PRE_BUILD_CMDS='sed -i "/^check() {/,/^}/d" ./PKGBUILD' make-aur-package openssl-1.1
-PRE_BUILD_CMDS='sed -i "/^check() {/,/^}$/d" ./PKGBUILD' make-aur-package python2
 PRE_BUILD_CMDS='sed -i "s|INSTALL_DIR='\''/opt/maszyna'\''|INSTALL_DIR='\''\$APPDIR/bin'\''|g" ./maszyna.sh' make-aur-package maszyna-git
 
 # If the application needs to be manually built that has to be done down here

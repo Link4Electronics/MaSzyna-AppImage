@@ -35,7 +35,7 @@ echo "$VERSION" > ~/version
 mkdir -p ./AppDir/bin
 cd ./maszyna
 mkdir build && cd build
-export CXXFLAGS="$CXXFLAGS -Wno-error=format-security"
+#export CXXFLAGS="$CXXFLAGS -Wno-error=format-security"
 cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_BETTER_RENDERER=OFF -DWITH_DISCORD_RPC=OFF -DWITH_OPENVR=ON
 make -j$(nproc)
 mv -v bin/eu07* ../../AppDir/bin/maszyna

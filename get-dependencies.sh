@@ -34,6 +34,6 @@ mkdir -p ./AppDir/bin
 cd ./maszyna
 mkdir build && cd build
 export CXXFLAGS="$CXXFLAGS -Wno-error=format-security"
-cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_BETTER_RENDERER=ON -DWITH_DISCORD_RPC=OFF -DWITH_OPENVR=ON
+cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_BETTER_RENDERER=OFF -DWITH_DISCORD_RPC=OFF -DWITH_OPENVR=ON
 make -j$(nproc)
 mv -v /opt/maszyna/* ./AppDir/bin

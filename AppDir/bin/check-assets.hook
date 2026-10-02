@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# MaSzyna asset check hook
+# Checks if game assets exist, launches StarterNG if not
+
+PORTABLE_HOME="${APPDIR}.home"
+GAME_ROOT="${PORTABLE_HOME}/MaSzyna"
+
+mkdir -p "$GAME_ROOT"
+
+# Required asset directories
+REQUIRED_DIRS="dynamic sounds models scenery textures data"
+
+missing=0
+for dir in $REQUIRED_DIRS; do
+    if [ ! -d "$GAME_ROOT/$dir" ]; then
+        missing=1
+        break
+    fi
+done
+
+# Also check for load_weights.txt
+if [ ! -f "$GAME_ROOT/data/load_weights.txt" ]; then
+    missing=1
+fi
+
+if [ $missing -eq 1 ]; then
+    # Assets missing - launch StarterNG to let user download them
+    if [ -x "$APPDIR/bin/Starter" ]; then
+        export HOME="$PORTABLE_HOME"
+        export XDG_CONFIG_HOME="$PORTABLE_HOME/.config"
+        export XDG_DATA_HOME="$PORTABLE_HOME/.local/share"
+        export XDG_CACHE_HOME="$PORTABLE_HOME/.cache"
+        export LD_LIBRARY_PATH="$APPDIR/bin:$LD_LIBRARY_PATH"
+        mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+        cd "$GAME_ROOT"
+        exec "$APPDIR/bin/Starter" "$@"
+    else
+        # Fallback: show message and continue to main binary
+        echo "MaSzyna game assets not found in $GAME_ROOT"
+        echo "Please download assets from https://eu07.pl or use Steam/Epic Games"
+        echo "Required directories: $REQUIRED_DIRS"
+        echo "Continuing anyway..."
+    fi
+fi
+
+# Assets found - set up environment for main binary
+export HOME="$PORTABLE_HOME"
+export XDG_CONFIG_HOME="$PORTABLE_HOME/.config"
+export XDG_DATA_HOME="$PORTABLE_HOME/.local/share"
+export XDG_CACHE_HOME="$PORTABLE_HOME/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+
+cd "$GAME_ROOT"
+# Don't exec here - let AppRun.sh handle the final exec

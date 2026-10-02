@@ -1,0 +1,191 @@
+#!/bin/sh
+
+# MaSzyna game-root hook
+#
+# StarterNG (the launcher, $APPDIR/bin/Starter) takes its game root from the
+# current working directory (StarterNG GamePaths.ForCurrentDirectory()) and it
+# resolves the simulator as "<game root>/eu07*" (ExecutableLocator). So this
+# hook has to pick the right directory and cd into it before AppRun.sh execs
+# anything, otherwise the launcher reports /dynamic, /models, ... as missing.
+#
+# The game data lives next to the AppImage in "<AppImage>.home", which is the
+# portable home the uruntime already exports as $HOME.
+
+if [ -n "${APPIMAGE:-}" ]; then
+    PORTABLE_HOME="${APPIMAGE}.home"
+else
+    PORTABLE_HOME="${HOME:-${APPDIR}.home}"
+fi
+
+export HOME="$PORTABLE_HOME"
+export XDG_CONFIG_HOME="$PORTABLE_HOME/.config"
+export XDG_DATA_HOME="$PORTABLE_HOME/.local/share"
+export XDG_CACHE_HOME="$PORTABLE_HOME/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" 2>/dev/null || :
+
+# Find the game root. Accept every case variant upstream, Steam and users
+# come up with, then any directory of the portable home that holds game data.
+GAME_ROOT=""
+for name in MaSzyna MasZyna maszyna; do
+    if [ -d "$PORTABLE_HOME/$name" ]; then
+        GAME_ROOT="$PORTABLE_HOME/$name"
+        break
+    fi
+done
+
+if [ -z "$GAME_ROOT" ]; then
+    for dir in "$PORTABLE_HOME"/*/; do
+        if [ ! -d "$dir" ]; then
+            continue
+        fi
+        if [ -d "$dir/dynamic" ] || [ -f "$dir/data/load_weights.txt" ]; then
+            GAME_ROOT="${dir%/}"
+            break
+        fi
+    done
+fi
+
+if [ -z "$GAME_ROOT" ]; then
+    GAME_ROOT="$PORTABLE_HOME/MaSzyna"
+    mkdir -p "$GAME_ROOT" 2>/dev/null || :
+fi
+
+# A game root that is only partially linked (Steam/retail installs are often
+# symlinked entry by entry) is completed from the install those links point
+# at, so a lone missing /data does not break the launcher. Everything is
+# linked, not just the six directories InstallationCheck asks for: the sim
+# also needs eu07.ini, eu07_input-*.ini, lang/, shaders/, fonts/, scripts/ ...
+INSTALL_ROOT=""
+for entry in dynamic models scenery sounds textures data starter lang; do
+    if [ -L "$GAME_ROOT/$entry" ]; then
+        link_target=$(readlink -f "$GAME_ROOT/$entry" 2>/dev/null || :)
+        if [ -n "$link_target" ]; then
+            INSTALL_ROOT=$(dirname "$link_target")
+        fi
+        break
+    fi
+done
+
+if [ -n "$INSTALL_ROOT" ] && [ "$INSTALL_ROOT" != "$GAME_ROOT" ]; then
+    for src in "$INSTALL_ROOT"/*; do
+        [ -e "$src" ] || [ -L "$src" ] || continue
+        base=${src##*/}
+        # Windows payloads, and eu07 itself so the AppImage always supplies
+        # the simulator it was built and bundled with.
+        case $base in
+            *.dll|*.exe|*.zip|*.pdb|*.bpl|*.bat|*.com|*.msi|*.7z|*.rar|*.tar|*.gz|eu07)
+                continue ;;
+        esac
+        if [ -e "$GAME_ROOT/$base" ] || [ -L "$GAME_ROOT/$base" ]; then
+            continue
+        fi
+        ln -s "$src" "$GAME_ROOT/$base" 2>/dev/null || :
+    done
+fi
+
+# What StarterNG's InstallationCheck needs before it will start a simulation.
+MISSING=""
+for entry in dynamic models scenery sounds textures; do
+    if [ ! -d "$GAME_ROOT/$entry" ]; then
+        MISSING="$MISSING /$entry"
+    fi
+done
+if [ ! -f "$GAME_ROOT/data/load_weights.txt" ]; then
+    MISSING="$MISSING /data/load_weights.txt"
+fi
+
+if [ -n "$MISSING" ]; then
+    >&2 printf 'MaSzyna: incomplete game data in %s (missing:%s)\n' "$GAME_ROOT" "$MISSING"
+    >&2 printf '  Install the game or link it in, for example:\n'
+    >&2 printf '    ln -s "/path/to/MaSzyna"/* "%s/"\n' "$GAME_ROOT"
+fi
+
+# StarterNG looks for the simulator as "<game root>/eu07*", hand it a link
+# into the AppDir. sharun resolves that link to $APPDIR/bin/maszyna and runs
+# the bundled binary, so the game keeps its bundled libraries.
+SIM_LINK="$GAME_ROOT/eu07"
+if [ -L "$SIM_LINK" ] && [ ! -e "$SIM_LINK" ]; then
+    rm -f "$SIM_LINK"
+fi
+if [ ! -e "$SIM_LINK" ] && [ -e "$APPDIR/bin/maszyna" ]; then
+    ln -s "$APPDIR/bin/maszyna" "$SIM_LINK" 2>/dev/null || :
+fi
+
+if [ ! -f "$GAME_ROOT/eu07.ini" ] && [ -z "$MISSING" ]; then
+    >&2 printf 'MaSzyna: no eu07.ini in %s, the simulator cannot size its window\n' "$GAME_ROOT"
+fi
+
+# ---------------------------------------------------------------------------
+# Repair $HOME/.config/MaSzyna/eu07.ini before StarterNG touches it.
+#
+# StarterNG serialises every key it knows into that file on each Start
+# (SettingsSerializer.cs), and "uarttune" is written even when its value is
+# empty - ConfigFile.Set() then emits a bare "uarttune" line. The simulator
+# parses that key as a fixed list of 18 numbers (maszyna utilities/Globals.cpp
+# -> Parser.getTokens(18)), so a bare line swallows gfxrenderer/width/height
+# and everything up to anisotropicfiltering. window_size stays 0x0, glfw
+# rejects the window, and the sim exits immediately: Start looks dead.
+#
+# The file is therefore seeded from the game root's own eu07.ini (StarterNG
+# keeps unknown keys verbatim, so the install settings survive) and given the
+# 18 default uart values. StarterNG reads the tail of that line back as one
+# string and writes it unchanged on the next save, so the repair sticks.
+# ---------------------------------------------------------------------------
+UARTTUNE_DEFAULTS='0 65535 0 65535 10 65535 10 65535 10 65535 10 65535 100000 65535 10000 65535 150 65535'
+
+USER_CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/MaSzyna"
+USER_CFG="$USER_CFG_DIR/eu07.ini"
+
+if [ ! -f "$USER_CFG" ] && [ -f "$GAME_ROOT/eu07.ini" ]; then
+    mkdir -p "$USER_CFG_DIR" 2>/dev/null || :
+    cp "$GAME_ROOT/eu07.ini" "$USER_CFG" 2>/dev/null || :
+fi
+
+if [ -f "$USER_CFG" ]; then
+    USER_CFG_TMP="$USER_CFG.tmp.$$"
+    if awk -v defs="$UARTTUNE_DEFAULTS" -v defw=1280 -v defh=720 '
+        BEGIN { n = split(defs, d, " ") }
+        {
+            sub(/\r$/, "")
+            if ($0 ~ /^[ \t]*uarttune([ \t]|$)/) {
+                if (seen) { next }
+                seen = 1
+                line = $0
+                sub(/[ \t]*\/\/.*$/, "", line)
+                sub(/^[ \t]*uarttune[ \t]*/, "", line)
+                m = split(line, v, /[ \t]+/)
+                out = ""
+                for (i = 1; i <= n; i++) {
+                    val = (i <= m ? v[i] : "")
+                    if (val !~ /^-?[0-9]+([.][0-9]+)?$/) { val = d[i] }
+                    out = out (i > 1 ? " " : "") val
+                }
+                print "uarttune " out
+                next
+            }
+            if ($0 ~ /^[ \t]*width([ \t]|$)/) { hasw = 1 }
+            if ($0 ~ /^[ \t]*height([ \t]|$)/) { hash = 1 }
+            print
+        }
+        END {
+            if (!seen) { print "uarttune " defs }
+            if (!hasw) { print "width " defw }
+            if (!hash) { print "height " defh }
+        }
+    ' "$USER_CFG" > "$USER_CFG_TMP" 2>/dev/null && cat "$USER_CFG_TMP" > "$USER_CFG" 2>/dev/null; then
+        :
+    fi
+    rm -f "$USER_CFG_TMP"
+fi
+
+if cd "$GAME_ROOT" 2>/dev/null; then
+    :
+else
+    >&2 printf 'MaSzyna: cannot enter the game root %s\n' "$GAME_ROOT"
+fi
+
+# Without a usable data set only the launcher can tell the user what to do,
+# so never hand this over to the simulator itself.
+if [ -n "$MISSING" ] && [ -x "$APPDIR/bin/Starter" ]; then
+    exec "$APPDIR/bin/Starter"
+fi

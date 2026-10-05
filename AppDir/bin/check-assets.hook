@@ -5,48 +5,24 @@
 # StarterNG (the launcher, $APPDIR/bin/Starter) takes its game root from the
 # current working directory (StarterNG GamePaths.ForCurrentDirectory()) and it
 # resolves the simulator as "<game root>/eu07*" (ExecutableLocator). So this
-# hook has to pick the right directory and cd into it before AppRun.sh execs
-# anything, otherwise the launcher reports /dynamic, /models, ... as missing.
+# hook has to cd into the game root before AppRun.sh execs anything, otherwise
+# the launcher reports /dynamic, /models, ... as missing.
 #
-
-# Find the game root. Accept every case variant upstream, Steam and users
-# come up with, then any directory of the portable home that holds game data.
+# The game root and its data are the user's to provide (see the README); this
+# hook never adds or links game data itself. The one exception is the
+# simulator: "$APPDIR/bin/eu07" is a sharun hardlink, so linking it into the
+# game root keeps the launcher on the build shipped with the AppImage - a
+# Steam-provided eu07 would not start on a musl host.
 GAME_ROOT="$HOME/MaSzyna"
 
-# A game root that is only partially linked (Steam/retail installs are often
-# symlinked entry by entry) is completed from the install those links point
-# at, so a lone missing /data does not break the launcher. Everything is
-# linked, not just the six directories InstallationCheck asks for: the sim
-# also needs eu07.ini, eu07_input-*.ini, lang/, shaders/, fonts/, scripts/ ...
-INSTALL_ROOT=""
-for entry in dynamic models scenery sounds textures data starter lang; do
-    if [ -L "$GAME_ROOT/$entry" ]; then
-        link_target=$(readlink -f "$GAME_ROOT/$entry" 2>/dev/null || :)
-        if [ -n "$link_target" ]; then
-            INSTALL_ROOT=$(dirname "$link_target")
-        fi
-        break
-    fi
-done
-
-if [ -n "$INSTALL_ROOT" ] && [ "$INSTALL_ROOT" != "$GAME_ROOT" ]; then
-    for src in "$INSTALL_ROOT"/*; do
-        [ -e "$src" ] || [ -L "$src" ] || continue
-        base=${src##*/}
-        # Windows payloads, and eu07 itself so the AppImage always supplies
-        # the simulator it was built and bundled with.
-        case $base in
-            *.dll|*.exe|*.zip|*.pdb|*.bpl|*.bat|*.com|*.msi|*.7z|*.rar|*.tar|*.gz|eu07)
-                continue ;;
-        esac
-        if [ -e "$GAME_ROOT/$base" ] || [ -L "$GAME_ROOT/$base" ]; then
-            continue
-        fi
-        ln -s "$src" "$GAME_ROOT/$base" 2>/dev/null || :
-    done
+# AppRun.sh sources hooks under "set -e", and a missing game root is a normal
+# first run, not an error: leave it to Starter to report what is missing.
+if [ -d "$GAME_ROOT" ]; then
+    ln -sfn "$APPDIR/bin/eu07" "$GAME_ROOT/eu07" 2>/dev/null || :
+    cd "$GAME_ROOT" 2>/dev/null || :
+else
+    echo "MaSzyna: game root '$GAME_ROOT' not found, not changing directory" >&2
 fi
-
-ln -sf "$APPDIR/bin/eu07" "$HOME/MaSzyna/eu07"
 
 # ---------------------------------------------------------------------------
 # Repair $CONFIGDIR/MaSzyna/eu07.ini before StarterNG touches it.
@@ -96,14 +72,10 @@ if [ -f "$USER_CFG" ]; then
                 print "uarttune " out
                 next
             }
-            if ($0 ~ /^[ \t]*width([ \t]|$)/) { hasw = 1 }
-            if ($0 ~ /^[ \t]*height([ \t]|$)/) { hash = 1 }
             print
         }
         END {
             if (!seen) { print "uarttune " defs }
-            if (!hasw) { print "width " defw }
-            if (!hash) { print "height " defh }
         }
     ' "$USER_CFG" > "$USER_CFG_TMP" 2>/dev/null && cat "$USER_CFG_TMP" > "$USER_CFG" 2>/dev/null; then
         :

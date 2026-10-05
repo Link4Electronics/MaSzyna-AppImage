@@ -76,7 +76,7 @@ fi
 
 if [ -f "$USER_CFG" ]; then
     USER_CFG_TMP="$USER_CFG.tmp.$$"
-    if awk -v defs="$UARTTUNE_DEFAULTS" -v defw=1280 -v defh=720 '
+    if awk -v defs="$UARTTUNE_DEFAULTS" '
         BEGIN { n = split(defs, d, " ") }
         {
             sub(/\r$/, "")
@@ -109,14 +109,4 @@ if [ -f "$USER_CFG" ]; then
         :
     fi
     rm -f "$USER_CFG_TMP"
-fi
-
-if cd "$GAME_ROOT" 2>/dev/null; then
-    :
-fi
-
-# Without a usable data set only the launcher can tell the user what to do,
-# so never hand this over to the simulator itself.
-if [ -n "$MISSING" ] && [ -x "$APPDIR/bin/Starter" ]; then
-    exec "$APPDIR/bin/Starter"
 fi
